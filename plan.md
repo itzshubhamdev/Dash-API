@@ -4,11 +4,33 @@
 **Base URL:** `https://api.qeintech.in/v1` <br>
 **Framework:** Next.js 14 (Route Handlers) <br>
 **Auth:** Supabase JWT (Bearer Token) <br>
-**Architecture:** Headless (Frontend is separate)
+**Architecture:** Headless (Frontend is separate) <br>
 
 ---
 
-### 1. 🛡️ The Permission System (Granular)
+### 1. 🗄️ Database Structure (Supabase)
+
+We use **PostgreSQL Schemas** to strictly separate "Hosting Logic" from "Money Logic". This prevents accidental data leaks and keeps the system organized.
+
+#### 📂 Schema: `hosting` (Core Infrastructure)
+* **`softwares`**: Categories (Minecraft, Bot, Database).
+* **`software_engines`**: Specific versions (Paper 1.20, Python 3.11).
+* **`plans`**: Products with resource limits (RAM, CPU) and Pterodactyl Egg IDs.
+* **`blueprints`**: Pre-configured setup recipes (Bedwars Bundle).
+* **`servers`**: The active user instances. Links `user_id` -> `plan_id` -> `ptero_id`.
+* **`locations`**: Nodes and regions (India, USA).
+* **`api_keys`**: Hashed keys for external Bots/Agents.
+* **`config`**: Global settings (Maintenance Mode, Allowed IPs).
+
+#### 📂 Schema: `hosting_billing` (The Economy)
+* **`wallets`**: Stores `coins` (Free) and `credits` (Paid) for each user.
+* **`transactions`**: Immutable ledger of every movement.
+* **`invoices`**: PDF links and payment metadata for real-money transactions.
+* **`coupons`**: Promo codes for marketing.
+
+---
+
+### 2. 🛡️ Roles & Permissions
 
 We use a **`resource.action`** syntax.
 * **Implicit Access:** Users **always** have full access to their *own* resources (`self`).
@@ -27,47 +49,46 @@ We use a **`resource.action`** syntax.
 
 ---
 
-### 2. 🟢 Category: Authentication & Identity
+### 3. 🟢 Category: Authentication & Security
+
+*Routes for login, session management, and access control.*
 
 | Method | Route | Permission | Description |
 | :--- | :--- | :--- | :--- |
 | **POST** | `/auth/sync` | Public | **Sync User.** Checks Central Auth token. Creates DB row if new. |
-| **GET** | `/auth/me` | Public | **Session.** Returns Profile, Role, and **Dual Wallet Balance** (Coins & Credits). |
-| **POST** | `/auth/logout` | Public | Invalidates session (Frontend logic). |
+| **GET** | `/auth/me` | Public | **Session.** Returns Profile, Role, and **Dual Wallet Balance**. |
+| **POST** | `/auth/logout` | Public | Invalidates session cookie. |
+| **GET** | `/security/access-rules` | `admin.access` | **Whitelist/Blocklist.** List all blocked IPs/Countries. |
+| **POST** | `/security/access-rules` | `admin.access` | **Add Rule.** Body: `{ type: "country", value: "RU", action: "block" }`. |
+| **DELETE**| `/security/access-rules/:id`| `admin.access` | Remove a block rule. |
 
 ---
 
-### 3. 🔵 Category: Economy & Billing (Dual Currency)
+### 4. 🔵 Category: Economy & Billing
 
-**Currencies:**
-* 🪙 **Coins:** Earned via activity (Daily, Referrals). Used for *Free Tier* & *Cosmetics*.
-* 💵 **$ Credits:** Purchased via UPI/Stripe. Used for *Premium Plans*, *VPS*, *Priority Support*.
+*Managing Coins (Free) and Credits (Paid).*
 
-#### Wallet & Earning (Coins)
 | Method | Route | Permission | Description |
 | :--- | :--- | :--- | :--- |
 | **GET** | `/economy/wallet` | Owner | Fetch balances `{ coins: 500, credits: 20.00 }`. |
 | **GET** | `/economy/transactions` | Owner | Fetch history log (Coin earnings & Credit spends). |
 | **POST** | `/economy/earn/daily` | Owner | Claims the 24h daily reward (Coins). |
-| **POST** | `/economy/earn/referral` | Owner | Generate/Claim referral rewards. |
-
-#### Billing & Payments (Credits)
-| Method | Route | Permission | Description |
-| :--- | :--- | :--- | :--- |
-| **POST** | `/billing/top-up` | Owner | **Initiate Payment.** Body: `{ amount: 500, gateway: "upi" }`. Returns payment link. |
-| **POST** | `/billing/webhook/:gateway`| Public | **Payment Callback.** Verifies payment & adds **Credits** to wallet. |
-| **GET** | `/billing/invoices` | Owner | List PDF invoices for Credit purchases. |
-| **POST** | `/billing/convert` | Owner | (Optional) Convert Credits -> Coins. *Never Coins -> Credits.* |
+| **POST** | `/economy/earn/referral` | Owner | Claim referral rewards. |
+| **POST** | `/billing/top-up` | Owner | **Add Credits.** Body: `{ amount: 10, gateway: "stripe" }`. |
+| **POST** | `/billing/webhook/:gateway`| Public | **Callback.** Verifies payment & adds Credits. |
+| **GET** | `/billing/invoices` | Owner | List PDF invoices for purchases. |
+| **POST** | `/billing/convert` | Owner | (Optional) Convert Credits -> Coins. |
 
 ---
 
-### 4. 🟠 Category: Server Management (Pterodactyl Bridge)
+### 5. 🟠 Category: Server Management (Pterodactyl Bridge)
 
 #### 🛒 Provisioning (The "Buy" Action)
 | Method | Route | Permission | Description |
 | :--- | :--- | :--- | :--- |
 | **GET** | `/catalog/plans` | Public | List Plans. Includes `currency_type` ('coins' or 'credits'). |
-| **POST** | `/servers/deploy` | Owner | **Create Server.** <br>1. Check Plan Currency (Coin vs Credit).<br>2. Check Balance.<br>3. Deduct.<br>4. Provision on Pterodactyl. |
+| **GET** | `/catalog/blueprints` | Public | List pre-made setups. |
+| **POST** | `/servers/deploy` | Owner | **Create Server.** <br>1. Check Plan Currency.<br>2. Check Balance.<br>3. Deduct.<br>4. Provision on Pterodactyl. |
 | **POST** | `/servers/:id/renew` | Owner | **Extend Life.** Charges the appropriate currency based on the plan. |
 | **POST** | `/servers/:id/upgrade` | Owner | Switch Plan (e.g., Free -> Premium). Calculates pro-rated Credit cost. |
 
@@ -81,7 +102,7 @@ We use a **`resource.action`** syntax.
 | **POST** | `/servers/:id/command` | Owner | Send command to console. |
 | **GET** | `/servers/:id/websocket` | Owner | Returns websocket token & URL. |
 
-#### 📂 File Manager (Client API)
+#### 📂 File Manager (Full Client API)
 | Method | Route | Permission | Description |
 | :--- | :--- | :--- | :--- |
 | **GET** | `/servers/:id/files/list` | Owner | List directory contents. |
@@ -92,7 +113,10 @@ We use a **`resource.action`** syntax.
 | **POST** | `/servers/:id/files/delete` | Owner | Delete files. |
 | **POST** | `/servers/:id/files/compress`| Owner | Zip files. |
 | **POST** | `/servers/:id/files/decompress`| Owner | Unzip archive. |
+| **POST** | `/servers/:id/files/copy` | Owner | Duplicate a file. |
+| **POST** | `/servers/:id/files/create-dir`| Owner | Create a new folder. |
 | **GET** | `/servers/:id/files/upload` | Owner | Get signed upload URL. |
+| **POST** | `/servers/:id/files/pull` | Owner | **Remote Download.** Pull file from URL to server. |
 
 #### 📦 Backups & Network
 | Method | Route | Permission | Description |
@@ -100,12 +124,32 @@ We use a **`resource.action`** syntax.
 | **GET** | `/servers/:id/backups` | Owner | List all backups. |
 | **POST** | `/servers/:id/backups` | Owner | **Create Backup.** |
 | **POST** | `/servers/:id/backups/:uuid/restore`| Owner | Restore a backup. |
+| **DELETE**| `/servers/:id/backups/:uuid` | Owner | Delete a backup. |
 | **GET** | `/servers/:id/network` | Owner | List allocated ports. |
 | **POST** | `/servers/:id/network/allocations`| Owner | **Auto-Assign Port.** (May cost Credits). |
+| **POST** | `/servers/:id/network/primary` | Owner | Set primary connection port. |
+| **DELETE**| `/servers/:id/network/:id` | Owner | Release/Delete an allocation. |
+
+#### ⚙️ Startup & Settings
+| Method | Route | Permission | Description |
+| :--- | :--- | :--- | :--- |
+| **GET** | `/servers/:id/startup` | Owner | View variables. |
+| **POST** | `/servers/:id/startup` | Owner | Update variables (e.g. `SERVER_JAR`). |
+| **POST** | `/servers/:id/settings/rename` | Owner | Rename server on dashboard. |
+| **POST** | `/servers/:id/settings/reinstall`| Owner | **Reinstall Server.** (Wipes data). |
+| **POST** | `/servers/:id/settings/docker-image`| Owner | Change Docker Image. |
+
+#### 👥 Users (Collaboration)
+| Method | Route | Permission | Description |
+| :--- | :--- | :--- | :--- |
+| **GET** | `/servers/:id/users` | Owner | List sub-users. |
+| **POST** | `/servers/:id/users` | Owner | **Invite User.** Body: `{ email: "...", permissions: ["control.start"] }`. |
+| **PUT** | `/servers/:id/users/:uuid` | Owner | Update permissions. |
+| **DELETE**| `/servers/:id/users/:uuid` | Owner | Remove sub-user. |
 
 ---
 
-### 5. 🟣 Category: Admin & External Access
+### 6. 🟣 Category: Admin & External Access
 
 #### External API Keys (Admin Only)
 *For generating keys for Bots/Agents.*
@@ -134,4 +178,5 @@ We use a **`resource.action`** syntax.
 | Method | Route | Permission | Description |
 | :--- | :--- | :--- | :--- |
 | **GET** | `/admin/config` | `admin.access` | Fetch global settings. |
-| **PATCH**| `/admin/config` | `admin.access` | **Hot Reload.** Update Prices (Coins/Credits) or Maintenance Mode. |
+| **PATCH**| `/admin/config` | `admin.access` | **Hot Reload.** Update Prices or Maintenance Mode. |
+| **POST** | `/admin/announcements` | `admin.access` | Create Global Alert (Toast) for all users. |
