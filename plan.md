@@ -1,9 +1,9 @@
 # Backend Architecture & API Specification
 ## Project: QeinTech Platform (Headless API)
 
-**Base URL:** `https://api.qeintech.in/v1`
-**Framework:** Next.js 14 (Route Handlers)
-**Auth:** Supabase JWT (Bearer Token)
+**Base URL:** `https://api.qeintech.in/v1` <br>
+**Framework:** Next.js 14 (Route Handlers) <br>
+**Auth:** Supabase JWT (Bearer Token) <br>
 **Architecture:** Headless (Frontend is separate)
 
 ---
@@ -41,7 +41,7 @@ We use a **`resource.action`** syntax.
 
 **Currencies:**
 * 🪙 **Coins:** Earned via activity (Daily, Referrals). Used for *Free Tier* & *Cosmetics*.
-* 💵 **Credits:** Purchased via UPI/Stripe ($1 = 100 Credits). Used for *Premium Plans*, *VPS*, *Priority Support*.
+* 💵 **$ Credits:** Purchased via UPI/Stripe. Used for *Premium Plans*, *VPS*, *Priority Support*.
 
 #### Wallet & Earning (Coins)
 | Method | Route | Permission | Description |
