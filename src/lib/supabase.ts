@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { TokenPayload } from "./types";
 
 let supabaseInstance: SupabaseClient | null = null;
 
@@ -47,6 +48,22 @@ export async function getUserByAuthUuid(authUuid: string) {
   return data;
 }
 
+// Helper to create user
+export async function createUser(token: TokenPayload) {
+  const { data, error } = await supabase
+    .from("users")
+    .insert({ auth_uuid: token.sub, email: token.email, role: "user" })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating user:", error);
+    return null;
+  }
+
+  return data;
+}
+
 // Helper to get user's wallet
 export async function getWallet(userId: number) {
   const { data, error } = await supabase
@@ -57,6 +74,22 @@ export async function getWallet(userId: number) {
 
   if (error) {
     console.error("Error fetching wallet:", error);
+    return null;
+  }
+
+  return data;
+}
+
+// Helper to create wallet
+export async function createWallet(userId: number) {
+  const { data, error } = await supabase
+    .from("wallets")
+    .insert({ user_id: userId, balance: 0 })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating wallet:", error);
     return null;
   }
 

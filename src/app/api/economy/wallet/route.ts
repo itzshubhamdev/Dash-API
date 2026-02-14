@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getJWTPayload } from "@/lib/auth";
-import { supabase, getUserByAuthUuid, getWallet } from "@/lib/supabase";
+import { getUserByAuthUuid, getWallet, createWallet } from "@/lib/supabase";
 import { TokenPayload } from "@/lib/types";
 
 // GET /api/economy/wallet - Get wallet balance and stats
@@ -20,7 +20,11 @@ export async function GET(request: NextRequest) {
   }
 
   // Get wallet
-  const wallet = await getWallet(user.id);
+  let wallet = await getWallet(user.id);
+
+  if (!wallet) {
+    wallet = await createWallet(user.id);
+  }
 
   if (!wallet) {
     return NextResponse.json({ error: "Wallet not found" }, { status: 404 });
@@ -28,6 +32,6 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     balance: wallet.balance,
-    total_earned: wallet.totat_earned, // Note: typo in DB schema
+    total_earned: wallet.total_earned,
   });
 }
