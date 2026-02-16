@@ -84,7 +84,7 @@ export async function getWallet(userId: number) {
 export async function createWallet(userId: number) {
   const { data, error } = await supabase
     .from("wallets")
-    .insert({ user_id: userId, balance: 0 })
+    .insert({ user_id: userId, coins: 0, credits: 0 })
     .select()
     .single();
 
@@ -100,7 +100,7 @@ export async function createWallet(userId: number) {
 export async function updateWalletBalance(userId: number, newBalance: number) {
   const { data, error } = await supabase
     .from("wallets")
-    .update({ balance: newBalance, updated_at: new Date().toISOString() })
+    .update({ coins: newBalance, updated_at: new Date().toISOString() })
     .eq("user_id", userId)
     .select()
     .single();

@@ -31,7 +31,8 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({
-    balance: wallet.balance,
+    coins: wallet.coins,
+    credits: wallet.credits,
     total_earned: wallet.total_earned,
   });
 }
